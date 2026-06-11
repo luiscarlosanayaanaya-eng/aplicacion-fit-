@@ -17,7 +17,8 @@ export async function middleware(request: NextRequest) {
     hostname === ROOT_DOMAIN ||
     hostname === `${ROOT_DOMAIN}:3000` ||
     hostname === "localhost:3000" ||
-    hostname === "localhost";
+    hostname === "localhost" ||
+    hostname.endsWith(".vercel.app");
 
   // ─── Auth refresh ──────────────────────────────────────────────────────────
   let response = NextResponse.next({ request });
