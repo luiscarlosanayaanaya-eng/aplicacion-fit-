@@ -2,12 +2,16 @@ import React from "react";
 import { getUser } from "@forja/auth/server";
 import { redirect } from "next/navigation";
 import { OnboardingForm } from "@/components/coach/onboarding-form";
+import { getCurrentCoach } from "@/lib/auth";
 
 export const metadata = { title: "Configura tu marca" };
 
 export default async function OnboardingPage(): Promise<React.JSX.Element> {
   const user = await getUser();
   if (!user) redirect("/login");
+
+  const existingCoach = await getCurrentCoach();
+  if (existingCoach) redirect("/dashboard");
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-16">

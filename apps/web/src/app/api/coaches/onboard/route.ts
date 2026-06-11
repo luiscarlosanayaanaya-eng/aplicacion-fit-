@@ -25,12 +25,12 @@ export async function POST(request: NextRequest) {
     const { userId, email, name, slug, brandColor } = parsed.data;
 
     const existing = await db
-      .select({ id: coaches.id })
+      .select({ id: coaches.id, userId: coaches.userId })
       .from(coaches)
       .where(eq(coaches.slug, slug))
       .limit(1);
 
-    if (existing.length > 0) {
+    if (existing.length > 0 && existing[0]?.userId !== userId) {
       return NextResponse.json(
         { error: "Ese subdominio ya está en uso. Elige otro." },
         { status: 409 }
@@ -40,6 +40,10 @@ export async function POST(request: NextRequest) {
     const [coach] = await db
       .insert(coaches)
       .values({ userId, email, name, slug, brandColor: brandColor ?? "#6366f1" })
+      .onConflictDoUpdate({
+        target: coaches.userId,
+        set: { name, slug, brandColor: brandColor ?? "#6366f1", updatedAt: new Date() },
+      })
       .returning({ id: coaches.id });
 
     return NextResponse.json({ success: true, coachId: coach?.id });
