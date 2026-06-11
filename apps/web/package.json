@@ -1,0 +1,43 @@
+{
+  "name": "@forja/web",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --port 3000",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@forja/auth": "workspace:*",
+    "@supabase/ssr": "^0.6.1",
+    "@supabase/supabase-js": "^2.50.0",
+    "@forja/db": "workspace:*",
+    "@forja/ui": "workspace:*",
+    "@forja/validators": "workspace:*",
+    "@tanstack/react-query": "^5.80.5",
+    "@trpc/client": "^11.4.2",
+    "@trpc/next": "^11.4.2",
+    "@trpc/react-query": "^11.4.2",
+    "@trpc/server": "^11.4.2",
+    "drizzle-orm": "^0.44.1",
+    "lucide-react": "^0.517.0",
+    "postgres": "^3.4.5",
+    "next": "^15.3.3",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "superjson": "^2.2.2",
+    "zod": "^3.25.51"
+  },
+  "devDependencies": {
+    "@forja/config": "workspace:*",
+    "@types/node": "^22.15.29",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.5",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.4",
+    "tailwindcss": "^4.1.8",
+    "typescript": "^5.8.3"
+  }
+}

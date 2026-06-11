@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Next.js
+apps/web/.next/
+apps/web/out/
+
+# Expo / React Native
+apps/mobile/.expo/
+apps/mobile/dist/
+
+# Build outputs
+dist/
+build/
+.turbo/
+
+# OS
+.DS_Store
+*.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Drizzle
+packages/db/drizzle/meta/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Claude Code
+.claude/

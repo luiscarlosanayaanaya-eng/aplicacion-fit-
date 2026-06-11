@@ -1,0 +1,39 @@
+{
+  "name": "@forja/mobile",
+  "version": "0.0.1",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "build:preview": "eas build --profile preview",
+    "build:production": "eas build --profile production"
+  },
+  "dependencies": {
+    "@expo/vector-icons": "^14.1.0",
+    "@forja/validators": "workspace:*",
+    "@supabase/supabase-js": "^2.50.0",
+    "expo": "~53.0.9",
+    "expo-av": "~15.0.0",
+    "expo-constants": "~17.1.8",
+    "expo-font": "~13.0.0",
+    "expo-image": "~2.4.1",
+    "expo-router": "~5.1.11",
+    "expo-secure-store": "~14.0.0",
+    "expo-status-bar": "~2.2.3",
+    "nativewind": "^4.1.23",
+    "react": "18.3.1",
+    "react-native": "0.79.7",
+    "react-native-gesture-handler": "~2.21.0",
+    "react-native-reanimated": "~3.17.0",
+    "react-native-safe-area-context": "4.12.0",
+    "react-native-screens": "~4.5.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.27.4",
+    "@types/react": "~18.3.21",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.8.3"
+  }
+}
