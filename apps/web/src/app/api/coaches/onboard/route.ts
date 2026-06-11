@@ -53,6 +53,6 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     console.error("[onboard]", error);
-    return NextResponse.json({ error: "Error interno del servidor", detail: msg }, { status: 500 });
+    return NextResponse.json({ error: `Error: ${msg}` }, { status: 500 });
   }
 }
