@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, coaches, exercises } from "@forja/db";
-import { eq } from "drizzle-orm";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getUser } from "@forja/auth/server";
 import { createExerciseSchema } from "@forja/validators";
 
@@ -10,8 +9,13 @@ async function getCoachId(): Promise<string | null> {
   try {
     const user = await getUser();
     if (!user) return null;
-    const [coach] = await db.select({ id: coaches.id }).from(coaches).where(eq(coaches.userId, user.id)).limit(1);
-    return coach?.id ?? null;
+    const { data } = await supabaseAdmin
+      .from("coaches")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
   } catch {
     return null;
   }
@@ -39,7 +43,19 @@ export async function createExercise(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   try {
-    await db.insert(exercises).values({ ...parsed.data, coachId, isPublic: false });
+    const { error } = await supabaseAdmin.from("exercises").insert({
+      coach_id: coachId,
+      name: parsed.data.name,
+      description: parsed.data.description,
+      instructions: parsed.data.instructions,
+      muscle_groups: parsed.data.muscleGroups,
+      equipment: parsed.data.equipment,
+      difficulty: parsed.data.difficulty,
+      video_url: parsed.data.videoUrl,
+      thumbnail_url: parsed.data.thumbnailUrl,
+      is_public: false,
+    });
+    if (error) return { error: "Error al crear el ejercicio." };
     revalidatePath("/exercises");
     return { success: true };
   } catch {
@@ -69,10 +85,22 @@ export async function updateExercise(id: string, formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   try {
-    await db
-      .update(exercises)
-      .set({ ...parsed.data, updatedAt: new Date() })
-      .where(eq(exercises.id, id));
+    const { error } = await supabaseAdmin
+      .from("exercises")
+      .update({
+        name: parsed.data.name,
+        description: parsed.data.description,
+        instructions: parsed.data.instructions,
+        muscle_groups: parsed.data.muscleGroups,
+        equipment: parsed.data.equipment,
+        difficulty: parsed.data.difficulty,
+        video_url: parsed.data.videoUrl,
+        thumbnail_url: parsed.data.thumbnailUrl,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al actualizar el ejercicio." };
     revalidatePath("/exercises");
     revalidatePath(`/exercises/${id}`);
     return { success: true };
@@ -86,7 +114,12 @@ export async function deleteExercise(id: string) {
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.delete(exercises).where(eq(exercises.id, id));
+    const { error } = await supabaseAdmin
+      .from("exercises")
+      .delete()
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al eliminar el ejercicio." };
     revalidatePath("/exercises");
     return { success: true };
   } catch {

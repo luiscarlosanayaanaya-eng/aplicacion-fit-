@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, coaches, routines, routineDays, routineExercises } from "@forja/db";
-import { eq } from "drizzle-orm";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getUser } from "@forja/auth/server";
 import { createRoutineSchema } from "@forja/validators";
 
@@ -10,8 +9,13 @@ async function getCoachId(): Promise<string | null> {
   try {
     const user = await getUser();
     if (!user) return null;
-    const [coach] = await db.select({ id: coaches.id }).from(coaches).where(eq(coaches.userId, user.id)).limit(1);
-    return coach?.id ?? null;
+    const { data } = await supabaseAdmin
+      .from("coaches")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
   } catch {
     return null;
   }
@@ -32,12 +36,21 @@ export async function createRoutine(formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   try {
-    const [routine] = await db
-      .insert(routines)
-      .values({ ...parsed.data, coachId, isTemplate: true })
-      .returning({ id: routines.id });
+    const { data, error } = await supabaseAdmin
+      .from("routines")
+      .insert({
+        coach_id: coachId,
+        name: parsed.data.name,
+        description: parsed.data.description,
+        duration_weeks: parsed.data.durationWeeks,
+        difficulty: parsed.data.difficulty,
+        is_template: true,
+      })
+      .select("id")
+      .single();
+    if (error) return { error: "Error al crear la rutina." };
     revalidatePath("/routines");
-    return { success: true, id: routine?.id };
+    return { success: true, id: data?.id };
   } catch {
     return { error: "Error al crear la rutina." };
   }
@@ -58,7 +71,18 @@ export async function updateRoutine(id: string, formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   try {
-    await db.update(routines).set({ ...parsed.data, updatedAt: new Date() }).where(eq(routines.id, id));
+    const { error } = await supabaseAdmin
+      .from("routines")
+      .update({
+        name: parsed.data.name,
+        description: parsed.data.description,
+        duration_weeks: parsed.data.durationWeeks,
+        difficulty: parsed.data.difficulty,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al actualizar la rutina." };
     revalidatePath("/routines");
     revalidatePath(`/routines/${id}`);
     return { success: true };
@@ -72,7 +96,12 @@ export async function deleteRoutine(id: string) {
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.delete(routines).where(eq(routines.id, id));
+    const { error } = await supabaseAdmin
+      .from("routines")
+      .delete()
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al eliminar la rutina." };
     revalidatePath("/routines");
     return { success: true };
   } catch {
@@ -80,15 +109,20 @@ export async function deleteRoutine(id: string) {
   }
 }
 
-export async function addRoutineDay(routineId: string, data: { dayNumber: number; name?: string; restDay?: boolean }) {
+export async function addRoutineDay(
+  routineId: string,
+  data: { dayNumber: number; name?: string; restDay?: boolean }
+) {
   const coachId = await getCoachId();
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    const [day] = await db
-      .insert(routineDays)
-      .values({ routineId, ...data })
-      .returning({ id: routineDays.id });
+    const { data: day, error } = await supabaseAdmin
+      .from("routine_days")
+      .insert({ routine_id: routineId, day_number: data.dayNumber, name: data.name, rest_day: data.restDay })
+      .select("id")
+      .single();
+    if (error) return { error: "Error al agregar el día." };
     revalidatePath(`/routines/${routineId}`);
     return { success: true, id: day?.id };
   } catch {
@@ -101,7 +135,8 @@ export async function deleteRoutineDay(dayId: string, routineId: string) {
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.delete(routineDays).where(eq(routineDays.id, dayId));
+    const { error } = await supabaseAdmin.from("routine_days").delete().eq("id", dayId);
+    if (error) return { error: "Error al eliminar el día." };
     revalidatePath(`/routines/${routineId}`);
     return { success: true };
   } catch {
@@ -127,17 +162,18 @@ export async function addExerciseToDay(
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.insert(routineExercises).values({
-      routineDayId: dayId,
-      exerciseId: data.exerciseId,
+    const { error } = await supabaseAdmin.from("routine_exercises").insert({
+      routine_day_id: dayId,
+      exercise_id: data.exerciseId,
       order: data.order,
       sets: data.sets ?? 3,
-      repsMin: data.repsMin ?? 8,
-      repsMax: data.repsMax ?? 12,
-      restSeconds: data.restSeconds ?? 90,
+      reps_min: data.repsMin ?? 8,
+      reps_max: data.repsMax ?? 12,
+      rest_seconds: data.restSeconds ?? 90,
       rpe: data.rpe,
       notes: data.notes,
     });
+    if (error) return { error: "Error al agregar el ejercicio." };
     revalidatePath(`/routines/${routineId}`);
     return { success: true };
   } catch {
@@ -150,7 +186,11 @@ export async function removeExerciseFromDay(routineExerciseId: string, routineId
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.delete(routineExercises).where(eq(routineExercises.id, routineExerciseId));
+    const { error } = await supabaseAdmin
+      .from("routine_exercises")
+      .delete()
+      .eq("id", routineExerciseId);
+    if (error) return { error: "Error al eliminar el ejercicio." };
     revalidatePath(`/routines/${routineId}`);
     return { success: true };
   } catch {

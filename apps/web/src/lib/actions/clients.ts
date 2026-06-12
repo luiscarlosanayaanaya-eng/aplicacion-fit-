@@ -1,8 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { db, coaches, clients } from "@forja/db";
-import { eq } from "drizzle-orm";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getUser } from "@forja/auth/server";
 import { createClientSchema } from "@forja/validators";
 
@@ -10,8 +9,13 @@ async function getCoachId(): Promise<string | null> {
   try {
     const user = await getUser();
     if (!user) return null;
-    const [coach] = await db.select({ id: coaches.id }).from(coaches).where(eq(coaches.userId, user.id)).limit(1);
-    return coach?.id ?? null;
+    const { data } = await supabaseAdmin
+      .from("coaches")
+      .select("id")
+      .eq("user_id", user.id)
+      .limit(1)
+      .maybeSingle();
+    return data?.id ?? null;
   } catch {
     return null;
   }
@@ -37,25 +41,27 @@ export async function createClient(formData: FormData) {
 
   try {
     const { name, email, phone, goal, notes, birthDate, height, initialWeight } = parsed.data;
-    await db.insert(clients).values({
-      coachId,
+    const { error } = await supabaseAdmin.from("clients").insert({
+      coach_id: coachId,
       name,
       email,
       phone,
       goal,
       notes,
-      birthDate,
+      birth_date: birthDate,
       height,
-      initialWeight: initialWeight ? Math.round(initialWeight * 1000) : undefined,
+      initial_weight: initialWeight ? Math.round(initialWeight * 1000) : undefined,
       status: "active",
     });
+    if (error) {
+      if (error.message.includes("unique") || error.message.includes("duplicate")) {
+        return { error: "Ya existe un cliente con ese email." };
+      }
+      return { error: "Error al crear el cliente." };
+    }
     revalidatePath("/clients");
     return { success: true };
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Error desconocido";
-    if (msg.includes("unique") || msg.includes("duplicate")) {
-      return { error: "Ya existe un cliente con ese email." };
-    }
+  } catch {
     return { error: "Error al crear el cliente." };
   }
 }
@@ -79,16 +85,19 @@ export async function updateClient(id: string, formData: FormData) {
   if (!parsed.success) return { error: parsed.error.flatten().fieldErrors };
 
   try {
-    await db
-      .update(clients)
-      .set({
+    const { error } = await supabaseAdmin
+      .from("clients")
+      .update({
         ...parsed.data,
-        initialWeight: parsed.data.initialWeight
+        birth_date: parsed.data.birthDate,
+        initial_weight: parsed.data.initialWeight
           ? Math.round(parsed.data.initialWeight * 1000)
           : undefined,
-        updatedAt: new Date(),
+        updated_at: new Date().toISOString(),
       })
-      .where(eq(clients.id, id));
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al actualizar el cliente." };
     revalidatePath("/clients");
     revalidatePath(`/clients/${id}`);
     return { success: true };
@@ -102,7 +111,12 @@ export async function deleteClient(id: string) {
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.delete(clients).where(eq(clients.id, id));
+    const { error } = await supabaseAdmin
+      .from("clients")
+      .delete()
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al eliminar el cliente." };
     revalidatePath("/clients");
     return { success: true };
   } catch {
@@ -115,7 +129,12 @@ export async function updateClientStatus(id: string, status: "active" | "inactiv
   if (!coachId) return { error: "No autorizado" };
 
   try {
-    await db.update(clients).set({ status, updatedAt: new Date() }).where(eq(clients.id, id));
+    const { error } = await supabaseAdmin
+      .from("clients")
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq("id", id)
+      .eq("coach_id", coachId);
+    if (error) return { error: "Error al actualizar estado." };
     revalidatePath("/clients");
     return { success: true };
   } catch {

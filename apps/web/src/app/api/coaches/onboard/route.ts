@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { db } from "@forja/db";
-import { coaches } from "@forja/db";
 import { coachOnboardingSchema } from "@forja/validators";
-import { eq } from "drizzle-orm";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const onboardSchema = coachOnboardingSchema.extend({
   userId: z.string().uuid(),
@@ -24,31 +22,46 @@ export async function POST(request: NextRequest) {
 
     const { userId, email, name, slug, brandColor } = parsed.data;
 
-    const existing = await db
-      .select({ id: coaches.id, userId: coaches.userId })
-      .from(coaches)
-      .where(eq(coaches.slug, slug))
-      .limit(1);
+    // Check slug uniqueness (allow same user to reuse their own slug)
+    const { data: existing } = await supabaseAdmin
+      .from("coaches")
+      .select("id, user_id")
+      .eq("slug", slug)
+      .limit(1)
+      .maybeSingle();
 
-    if (existing.length > 0 && existing[0]?.userId !== userId) {
+    if (existing && existing.user_id !== userId) {
       return NextResponse.json(
         { error: "Ese subdominio ya está en uso. Elige otro." },
         { status: 409 }
       );
     }
 
-    const [coach] = await db
-      .insert(coaches)
-      .values({ userId, email, name, slug, brandColor: brandColor ?? "#6366f1" })
-      .onConflictDoUpdate({
-        target: coaches.userId,
-        set: { name, slug, brandColor: brandColor ?? "#6366f1", updatedAt: new Date() },
-      })
-      .returning({ id: coaches.id });
+    // Upsert coach (insert or update on user_id conflict)
+    const { data: coach, error } = await supabaseAdmin
+      .from("coaches")
+      .upsert(
+        {
+          user_id: userId,
+          email,
+          name,
+          slug,
+          brand_color: brandColor ?? "#6366f1",
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "user_id" }
+      )
+      .select("id")
+      .single();
+
+    if (error) {
+      console.error("[onboard]", error);
+      return NextResponse.json({ error: "Error al guardar. Intenta de nuevo." }, { status: 500 });
+    }
 
     return NextResponse.json({ success: true, coachId: coach?.id });
   } catch (error) {
     console.error("[onboard]", error);
-    return NextResponse.json({ error: "Error interno del servidor. Intenta de nuevo." }, { status: 500 });
+    return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
   }
 }

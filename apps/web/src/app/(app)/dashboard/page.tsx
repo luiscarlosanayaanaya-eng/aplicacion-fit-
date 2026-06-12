@@ -2,8 +2,7 @@ import React from "react";
 import { getUser } from "@forja/auth/server";
 import { redirect } from "next/navigation";
 import { getCurrentCoach } from "@/lib/auth";
-import { db, clients, routines, exercises } from "@forja/db";
-import { eq, count } from "drizzle-orm";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 import { DashboardShell } from "@/components/coach/dashboard-shell";
 import { Card, CardContent } from "@forja/ui";
 import { Users, ClipboardList, Dumbbell, TrendingUp } from "lucide-react";
@@ -13,15 +12,16 @@ export const metadata = { title: "Dashboard — Forja" };
 
 async function getStats(coachId: string) {
   try {
-    const [clientCount, routineCount, exerciseCount] = await Promise.all([
-      db.select({ count: count() }).from(clients).where(eq(clients.coachId, coachId)),
-      db.select({ count: count() }).from(routines).where(eq(routines.coachId, coachId)),
-      db.select({ count: count() }).from(exercises).where(eq(exercises.coachId, coachId)),
-    ]);
+    const [{ count: clientCount }, { count: routineCount }, { count: exerciseCount }] =
+      await Promise.all([
+        supabaseAdmin.from("clients").select("*", { count: "exact", head: true }).eq("coach_id", coachId),
+        supabaseAdmin.from("routines").select("*", { count: "exact", head: true }).eq("coach_id", coachId),
+        supabaseAdmin.from("exercises").select("*", { count: "exact", head: true }).eq("coach_id", coachId),
+      ]);
     return {
-      clients: clientCount[0]?.count ?? 0,
-      routines: routineCount[0]?.count ?? 0,
-      exercises: exerciseCount[0]?.count ?? 0,
+      clients: clientCount ?? 0,
+      routines: routineCount ?? 0,
+      exercises: exerciseCount ?? 0,
     };
   } catch {
     return { clients: 0, routines: 0, exercises: 0 };
