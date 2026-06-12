@@ -11,9 +11,6 @@ const onboardSchema = coachOnboardingSchema.extend({
 });
 
 export async function POST(request: NextRequest) {
-  if (!process.env["DATABASE_URL"]) {
-    return NextResponse.json({ error: "Config: DATABASE_URL no configurada en el servidor" }, { status: 500 });
-  }
   try {
     const body = await request.json();
     const parsed = onboardSchema.safeParse(body);
@@ -51,8 +48,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, coachId: coach?.id });
   } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
     console.error("[onboard]", error);
-    return NextResponse.json({ error: `Error: ${msg}` }, { status: 500 });
+    return NextResponse.json({ error: "Error interno del servidor. Intenta de nuevo." }, { status: 500 });
   }
 }
